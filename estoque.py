@@ -1,73 +1,74 @@
 class Estoque:
     def __init__(self):
         self.produtos = {}
+        self.movimentacoes = []
+        self.observadores = []
 
-    def adicionar_produto(self, produto):
-        if not isinstance(produto, Vestuario):
-            print("Erro: Somente produtos do tipo Vestuario podem ser adicionados.")
-            return
-        
-        if produto.codigo in self.produtos:
-            # Se o produto já estiver no estoque, atualize a quantidade
-            self.produtos[produto.codigo]['quantidade'] += produto.quantidade
+    def adicionar(self, produto):
+        self.produtos[produto.codigo] = produto
+        # Registrar movimentação de adição
+        self.movimentacoes.append({
+            'tipo': 'adicionar',
+            'produto': produto.nome,
+            'codigo': produto.codigo,
+            'quantidade': produto.quantidade,
+            'descricao': f"Adição de {produto.quantidade} unidades do produto {produto.nome} ao estoque."
+        })
+        return f"Produto {produto.nome} adicionado ao estoque!"
+
+    def remover(self, codigo):
+        if codigo in self.produtos:
+            produto = self.produtos.pop(codigo)
+            # Registrar movimentação de remoção
+            self.movimentacoes.append({
+                'tipo': 'remover',
+                'produto': produto.nome,
+                'codigo': produto.codigo,
+                'quantidade': produto.quantidade,
+                'descricao': f"Remoção do produto {produto.nome} do estoque."
+            })
+            return f"Produto {produto.nome} removido do estoque!"
         else:
-            # Adiciona o produto ao estoque
-            self.produtos[produto.codigo] = vars(produto)
-        self.alertar_estoque_baixo(produto.codigo)
+            return "Produto não encontrado no estoque!"
 
-    def remover_produto(self, codigo, quantidade):
-        if codigo not in self.produtos:
-            print("Erro: Produto não encontrado no estoque.")
-            return
-        
-        if quantidade <= 0:
-            print("Erro: A quantidade a ser removida deve ser maior que zero.")
-            return
-
-        produto = self.produtos[codigo]
-        if produto['quantidade'] < quantidade:
-            print("Erro: Quantidade a ser removida é maior que a quantidade disponível no estoque.")
-            return
-        
-        produto['quantidade'] -= quantidade
-        if produto['quantidade'] == 0:
-            del self.produtos[codigo]
-        else:
-            self.produtos[codigo] = produto
-        
-        self.alertar_estoque_baixo(codigo)
-
-    def atualizar_produto(self, codigo, nome=None, categoria=None, quantidade=None, preco=None, descricao=None, fornecedor=None, tamanho=None, material=None):
-        if codigo not in self.produtos:
-            print("Erro: Produto não encontrado no estoque.")
-            return
-        
-        produto = self.produtos[codigo]
-        if nome is not None:
-            produto['nome'] = nome
-        if categoria is not None:
-            produto['categoria'] = categoria
-        if quantidade is not None:
-            produto['quantidade'] = quantidade
-        if preco is not None:
-            produto['preco'] = preco
-        if descricao is not None:
-            produto['descricao'] = descricao
-        if fornecedor is not None:
-            produto['fornecedor'] = fornecedor
-        if tamanho is not None:
-            produto['tamanho'] = tamanho
-        if material is not None:
-            produto['material'] = material
-
-        self.produtos[codigo] = produto
-        self.alertar_estoque_baixo(codigo)
-
-    def alertar_estoque_baixo(self, codigo):
+    def atualizar(self, codigo, quantidade):
         if codigo in self.produtos:
             produto = self.produtos[codigo]
-            if produto['quantidade'] <= 3:
-                print(f"Alerta: O estoque do produto '{produto['nome']}' está baixo. Quantidade disponível: {produto['quantidade']}")
+            movimentacao_tipo = 'atualizar'
+            quantidade_movimentada = abs(produto.quantidade - quantidade)
+            descricao = f"Atualização do estoque do produto {produto.nome}. Quantidade alterada para {quantidade} unidades."
 
-    def listar_produtos(self):
-        return [vars(Vestuario(**produto)) for produto in self.produtos.values()]
+            produto.quantidade = quantidade
+
+            # Registrar movimentação de atualização
+            self.movimentacoes.append({
+                'tipo': movimentacao_tipo,
+                'produto': produto.nome,
+                'codigo': produto.codigo,
+                'quantidade': quantidade_movimentada,
+                'descricao': descricao
+            })
+
+            return f"Produto {produto.nome} atualizado para {produto.quantidade} unidades no estoque!"
+        else:
+            return "Produto não encontrado no estoque!"
+
+    def alertar(self):
+        alertas = []
+        for produto in self.produtos.values():
+            if produto.quantidade < 5:
+                alertas.append(f"Alerta: O produto {produto.nome} está com estoque baixo ({produto.quantidade} unidades).")
+        return alertas
+
+    def adicionar_observador(self, observador):
+        self.observadores.append(observador)
+
+    def notificar_observadores(self, produto):
+        for observador in self.observadores:
+            observador.atualizar(produto.codigo, produto.quantidade)
+
+    def historico_movimentacao(self):
+        relatorio = "Histórico de Movimentação de Estoque:\n"
+        for movimentacao in self.movimentacoes:
+            relatorio += f"{movimentacao['descricao']}\n"
+        return relatorio
