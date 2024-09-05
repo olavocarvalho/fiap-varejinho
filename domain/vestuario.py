@@ -1,4 +1,4 @@
-from produto import Produto
+from domain.produto import Produto
 
 class Vestuario(Produto):
     def __init__(self, nome, codigo, quantidade, preco, descricao, fornecedor):

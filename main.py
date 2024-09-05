@@ -1,60 +1,95 @@
-from eletronicos import Eletronicos
-from vestuario import Vestuario
-from gestor_loja import GestorLoja
-from estoque import Estoque
-from vendas import Vendas
-from relatorios import Relatorios
-from strategy import DescontoPercentual, DescontoValorFixo
+import pyodbc
 
-# Configuração do sistema com injeção de dependências
-estoque = Estoque()
-vendas = Vendas(estoque)
-relatorios = Relatorios(vendas, estoque)
+from infrastructure.repositories.estoque_repository import EstoqueRepository
+from infrastructure.repositories.vendas_repository import VendasRepository
+from infrastructure.repositories.recibo_repository import ReciboRepository
+from infrastructure.repositories.relatorio_repository import RelatorioRepository
 
-# Instanciação do GestorLoja
-gestor = GestorLoja(estoque, vendas, relatorios)
+from application.service.estoque_service import EstoqueService
+from application.service.vendas_service import VendasService
+from application.service.recibo_service import ReciboService
+from application.service.relatorio_service import RelatorioService
 
-# Criando produtos
-produto1 = Eletronicos("Smartphone", "001", 10, 1500.00, "Smartphone de última geração", "Fornecedor A")
-produto2 = Vestuario("Camiseta", "002", 20, 50.00, "Camiseta de algodão", "Fornecedor B")
-produto3 = Eletronicos("Laptop", "003", 5, 3000.00, "Laptop de alto desempenho", "Fornecedor C")
-produto4 = Vestuario("Calça Jeans", "004", 8, 100.00, "Calça Jeans Masculina", "Fornecedor D")
+from domain.eletronicos import Eletronicos
+from domain.vestuario import Vestuario
 
-# Adicionando ao estoque
-print(gestor.adicionar_produto(produto1))
-print(gestor.adicionar_produto(produto2))
-print(gestor.adicionar_produto(produto3))
-print(gestor.adicionar_produto(produto4))
+# Definindo as classes de modelo, serviço e repositório
 
-# Atualizando o estoque (simulação de alteração na quantidade manualmente)
-print(gestor.atualizar_produto("001", 15))  # Aumentando o estoque de Smartphone
+# Produto, Eletronicos, Vestuario, Venda, Recibo, Relatorio etc. foram definidos anteriormente.
 
-# Removendo um produto do estoque
-print(gestor.remover_produto("002"))  # Removendo a Camiseta
+def main():
+    # Conexão ao banco de dados SQL Server
+    connection_string = "Driver={ODBC Driver 17 for SQL Server};Server=KARINA;Database=fiapinho;Trusted_Connection=yes;"
+    db_conexao = pyodbc.connect(connection_string)
 
-# Registrando vendas
-# Venda 1: 2 Smartphones com 10% de desconto
-desconto_percentual = DescontoPercentual(10)
-print(gestor.registrar_venda("001", 2, desconto_percentual))
+    # Instanciar repositórios
+    estoque_repo = EstoqueRepository(db_conexao)
+    vendas_repo = VendasRepository(db_conexao)
+    recibo_repo = ReciboRepository(db_conexao)  # Caso você queira salvar recibos
+    relatorio_repo = RelatorioRepository(db_conexao)  # Caso você queira salvar relatórios
 
-# Venda 2: 3 Laptops sem desconto
-print(gestor.registrar_venda("003", 3))
+    # Instanciar serviços
+    estoque_service = EstoqueService(estoque_repo)
+    vendas_service = VendasService(vendas_repo, estoque_service)
+    recibo_service = ReciboService(recibo_repo)
+    relatorio_service = RelatorioService(vendas_service, estoque_service, relatorio_repo)
 
-# Venda 3: 6 Calças Jeans, sem desconto (para testar alerta de estoque baixo)
-print(gestor.registrar_venda("004", 6))
+    # 1. Adicionar produtos no estoque
+    eletronico = Eletronicos(
+        nome="Smartphone XYZ",
+        codigo="E001",
+        quantidade=100,
+        preco=1500.00,
+        descricao="Smartphone de última geração",
+        fornecedor="TechCorp"
+    )
+    vestuario = Vestuario(
+        nome="Camiseta Polo",
+        codigo="V001",
+        quantidade=200,
+        preco=79.90,
+        descricao="Camiseta Polo de algodão",
+        fornecedor="Textil Brasil"
+    )
 
-# Relatórios
-print("\nRelatório de Vendas:")
-print(gestor.gerar_relatorio_vendas())
+    # Adiciona produtos no estoque
+    print("Adicionando produtos no estoque...")
+    estoque_service.adicionar_produto(eletronico)
+    estoque_service.adicionar_produto(vestuario)
 
-print("\nRelatório de Estoque:")
-print(gestor.gerar_relatorio_estoque())
+    # 2. Atualizar um produto no estoque
+    print("Atualizando produto no estoque...")
+    estoque_service.atualizar_produto("E001", 80)  # Reduzir o estoque do eletrônico
 
-print("\nHistórico de Movimentação:")
-print(gestor.gerar_historico_movimentacao())
+    # 3. Registrar uma venda
+    print("Registrando uma venda...")
+    resultado_venda = vendas_service.registrar_venda(codigo="E001", quantidade=2)
+    print(resultado_venda)
 
-# Alertas de estoque
-print("\nAlertas de Estoque:")
-alertas = gestor.verificar_alertas_estoque()
-for alerta in alertas:
-    print(alerta)
+    # 4. Gerar um recibo da venda
+    print("Gerando recibo da venda...")
+    recibo = recibo_service.gerar_recibo(
+        id_venda=1,  # ID da venda gerada
+        produto="Smartphone XYZ",
+        quantidade=2,
+        valor_total=3000.00
+    )
+    print(recibo)
+
+    # 5. Gerar relatórios
+    print("Gerando relatórios...")
+    
+    # Relatório de vendas
+    relatorio_vendas = relatorio_service.relatorio_vendas()
+    print(relatorio_vendas)
+
+    # Relatório de estoque
+    relatorio_estoque = relatorio_service.relatorio_estoque()
+    print(relatorio_estoque)
+
+    # Histórico de movimentações
+    historico_movimentacao = relatorio_service.historico_movimentacao()
+    print(historico_movimentacao)
+
+if __name__ == "__main__":
+    main()
